@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jelly Jump: Star Catcher</title>
+    <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+    <div id="game-container">
+        
+        <!-- CANVAS -->
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- HUD (Heads Up Display) -->
+        <div id="hud" class="hidden">
+            <button class="hud-btn" id="btn-pause"><span class="icon">⏸️</span></button>
+            <div id="score-display">0</div>
+            <div style="width: 50px;"></div> <!-- Spacer for balance -->
+        </div>
+
+        <!-- MAIN MENU -->
+        <div id="menu-screen" class="ui-layer">
+            <div class="card">
+                <h1>Jelly Jump</h1>
+                <p id="txt-subtitle">Catch the stars!</p>
+                <button class="btn-main" id="btn-start">▶ Play</button>
+                <button class="btn-main btn-secondary" id="btn-settings-open">⚙️ Settings</button>
+            </div>
+        </div>
+
+        <!-- PAUSE MENU -->
+        <div id="pause-screen" class="ui-layer hidden">
+            <div class="card">
+                <h2 id="txt-paused">Paused</h2>
+                <button class="btn-main" id="btn-resume">▶ Resume</button>
+                <button class="btn-main btn-secondary" id="btn-restart-pause">↺ Restart</button>
+                <button class="btn-main btn-secondary" id="btn-settings-pause">⚙️ Settings</button>
+                <button class="btn-main btn-close" id="btn-menu-pause">🏠 Main Menu</button>
+            </div>
+        </div>
+
+        <!-- SETTINGS MENU -->
+        <div id="settings-screen" class="ui-layer hidden">
+            <div class="card">
+                <h2 id="txt-settings">Settings</h2>
+                
+                <div class="setting-row">
+                    <span id="txt-language">Language</span>
+                    <select id="lang-select">
+                        <option value="en">English</option>
+                        <option value="es">Español</option>
+                        <option value="fr">Français</option>
+                    </select>
+                </div>
+
+                <div class="setting-row">
+                    <span id="txt-audio">Audio Volume</span>
+                    <input type="range" id="vol-slider" min="0" max="100" value="50">
+                </div>
+
+                <div class="setting-row">
+                    <span id="txt-graphics">High Graphics</span>
+                    <label class="switch">
+                        <input type="checkbox" id="graphics-toggle" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <button class="btn-main btn-close" id="btn-settings-close">✓ Done</button>
+            </div>
+        </div>
+
+        <!-- GAME OVER MENU -->
+        <div id="gameover-screen" class="ui-layer hidden">
+            <div class="card">
+                <h2 id="txt-gameover">Game Over</h2>
+                <p id="final-score" style="font-size: 2rem; font-weight: bold; color: var(--primary);">0</p>
+                <button class="btn-main" id="btn-restart">↺ Play Again</button>
+                <button class="btn-main btn-close" id="btn-menu-over">🏠 Main Menu</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        /** * JELLY JUMP GAME ENGINE 
+         * 1. Audio System (Synthesizer)
+         * 2. Localization System
+         * 3. Game Logic (Canvas)
+         * 4. State Management
+         */
+
+        /* --- 1. CONFIGURATION & STATE --- */
+        const GameState = {
+            MENU: 0,
+            PLAYING: 1,
+            PAUSED: 2,
+            GAMEOVER: 3,
+            SETTINGS: 4
+        };
+
+        const Config = {
+            gravity: 0.6,
+            jumpForce: -14,
+            speed: 5,
+            spawnRate: 120, // frames
+            colors: {
+                player: '#FF9AA2',
+                star: '#FFD700',
+                ground: '#B5EAD7',
+                cloud: '#FFFFFF'
+            }
+        };
+
+        let state = {
+            current: GameState.MENU,
+            score: 0,
+            highScore: 0,
+            previousState: GameState.MENU, // For settings back navigation
+            settings: {
+                volume: 0.5,
+                highGraphics: true,
+                language: 'en'
+            }
+        };
+
+        /* --- 2. LOCALIZATION --- */
+        const Translations = {
+            en: {
+                play: "▶ Play",
+                settings: "⚙️ Settings",
+                paused: "Paused",
+                resume: "▶ Resume",
+                restart: "↺ Restart",
+                menu: "🏠 Main Menu",
+                gameover: "Game Over",
+                language: "Language",
+                audio: "Audio Volume",
+                graphics: "High Graphics",
+                done: "✓ Done",
+                subtitle: "Catch the stars!"
+            },
+            es: {
+                play: "▶ Jugar",
+                settings: "⚙️ Ajustes",
+                paused: "Pausa",
+                resume: "▶ Continuar",
+                restart: "↺ Reiniciar",
+                menu: "🏠 Menú Principal",
+                gameover: "Fin del Juego",
+                language: "Idioma",
+                audio: "Volumen",
+                graphics: "Gráficos Altos",
+                done: "✓ Listo",
+                subtitle: "¡Atrapa las estrellas!"
+            },
+            fr: {
+                play: "▶ Jouer",
+                settings: "⚙️ Options",
+                paused: "Pause",
+                resume: "▶ Reprendre",
+                restart: "↺ Recommencer",
+                menu: "🏠 Menu Principal",
+                gameover: "Perdu",
+                language: "Langue",
+                audio: "Volume",
+                graphics: "Graphismes Élevés",
+                done: "✓ Terminé",
+                subtitle: "Attrapez les étoiles!"
+            }
+        };
+
+        function updateLanguage() {
+            const lang = state.settings.language;
+            const t = Translations[lang];
+            
+            document.getElementById('btn-start').innerText = t.play;
+            document.getElementById('btn-settings-open').innerText = t.settings;
+            document.getElementById('txt-paused').innerText = t.paused;
+            document.getElementById('btn-resume').innerText = t.resume;
+            document.getElementById('btn-restart-pause').innerText = t.restart;
+            document.getElementById('btn-settings-pause').innerText = t.settings;
+            document.getElementById('btn-menu-pause').innerText = t.menu;
+            document.getElementById('txt-settings').innerText = t.settings;
+            document.getElementById('txt-language').innerText = t.language;
+            document.getElementById('txt-audio').innerText = t.audio;
+            document.getElementById('txt-graphics').innerText = t.graphics;
+            document.getElementById('btn-settings-close').innerText = t.done;
+            document.getElementById('txt-gameover').innerText = t.gameover;
+            document.getElementById('btn-restart').innerText = t.restart;
+            document.getElementById('btn-menu-over').innerText = t.menu;
+            document.getElementById('txt-subtitle').innerText = t.subtitle;
+        }
+
+        /* --- 3. AUDIO SYSTEM (Web Audio API - No External Files) --- */
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioCtx();
+
+        const Sound = {
+            playTone: (freq, type, duration) => {
+                if (state.settings.volume <= 0) return;
+                
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                
+                gain.gain.setValueAtTime(state.settings.volume * 0.2, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                
+                osc.start();
+                osc.stop(ctx.currentTime + duration);
+            },
+            jump: () => Sound.playTone(400, 'sine', 0.3),
+            collect: () => Sound.playTone(800, 'triangle', 0.1),
+            crash: () => Sound.playTone(150, 'sawtooth', 0.5),
+            ui: () => Sound.playTone(600, 'sine', 0.1)
+        };
+
+        /* --- 4. GAME ENGINE --- */
+        const canvas = document.getElementById('gameCanvas');
+        const c = canvas.getContext('2d');
+        
+        let width, height;
+        
+        // Responsive Canvas
+        function resize() {
+            const container = document.getElementById('game-container');
+            width = canvas.width = container.clientWidth;
+            height = canvas.height = container.clientHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Input Handling
+        let input = { jump: false };
+        
+        const handleJump = (e) => {
+            if (e.type === 'keydown' && e.code !== 'Space' && e.code !== 'ArrowUp') return;
+            if (state.current === GameState.PLAYING) {
+                player.jump();
+            }
+        };
+
+        window.addEventListener('keydown', handleJump);
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); if(state.current === GameState.PLAYING) player.jump(); });
+        canvas.addEventListener('mousedown', (e) => { if(state.current === GameState.PLAYING) player.jump(); });
+
+        /* --- ENTITIES --- */
+        
+        class Player {
+            constructor() {
+                this.size = 40;
+                this.x = width * 0.2;
+                this.y = height / 2;
+                this.vy = 0;
+                this.grounded = false;
+                this.squash = 1;
+                this.stretch = 1;
+                this.angle = 0;
+            }
+
+            update() {
+                // Gravity
+                this.vy += Config.gravity;
+                this.y += this.vy;
+
+                // Floor Collision
+                if (this.y + this.size > height - 50) {
+                    this.y = height - 50 - this.size;
+                    this.vy = 0;
+                    this.grounded = true;
+                    // Reset deformation on land
+                    this.squash = 1.1; 
+                    this.stretch = 0.9;
+                } else {
+                    this.grounded = false;
+                    // In air deformation
+                    this.squash = 0.9;
+                    this.stretch = 1.1;
+                }
+
+                // Ceiling
+                if (this.y < 0) {
+                    this.y = 0;
+                    this.vy = 0;
+                }
+
+                // Smooth return to normal shape
+                this.squash += (1 - this.squash) * 0.1;
+                this.stretch += (1 - this.stretch) * 0.1;
+                
+                // Rotation based on velocity
+                this.angle = this.vy * 0.05;
+            }
+
+            draw() {
+                c.save();
+                c.translate(this.x + this.size/2, this.y + this.size/2);
+                c.rotate(this.angle);
+                c.scale(this.squash, this.stretch);
+                
+                // Body
+                c.fillStyle = Config.colors.player;
+                c.beginPath();
+                c.roundRect(-this.size/2, -this.size/2, this.size, this.size, 10);
+                c.fill();
+                
+                // Eyes (Cute Factor)
+                c.fillStyle = 'white';
+                c.beginPath();
+                c.arc(-8, -5, 6, 0, Math.PI * 2);
+                c.arc(8, -5, 6, 0, Math.PI * 2);
+                c.fill();
+                
+                // Pupils (Look slightly right)
+                c.fillStyle = '#333';
+                c.beginPath();
+                c.arc(-6, -5, 2, 0, Math.PI * 2);
+                c.arc(10, -5, 2, 0, Math.PI * 2);
+                c.fill();
+
+                // Blush
+                c.fillStyle = 'rgba(255, 100, 100, 0.3)';
+                c.beginPath();
+                c.arc(-10, 5, 4, 0, Math.PI * 2);
+                c.arc(10, 5, 4, 0, Math.PI * 2);
+                c.fill();
+
+                c.restore();
+            }
+
+            jump() {
+                // Double jump allowed? No, simple flappy bird style + platformer mix
+                // Allow jump if grounded OR (optional double jump logic could go here)
+                // Let's do Flappy Bird style (infinite jumps) or Platformer?
+                // Let's do Platformer: Only jump if grounded
+                if (this.grounded) {
+                    this.vy = Config.jumpForce;
+                    this.grounded = false;
+                    this.squash = 0.8;
+                    this.stretch = 1.2;
+                    Sound.jump();
+                    if(state.settings.highGraphics) createParticles(this.x + this.size/2, this.y + this.size, '#fff');
+                }
+            }
+        }
+
+        class Star {
+            constructor() {
+                this.size = 20;
+                this.x = width;
+                this.y = Math.random() * (height - 150) + 50; // Random height
+                this.speed = Config.speed;
+                this.markedForDeletion = false;
+                this.rotation = 0;
+            }
+
+            update() {
+                this.x -= this.speed;
+                this.rotation += 0.05;
+                if (this.x < -this.size) this.markedForDeletion = true;
+            }
+
+            draw() {
+                c.save();
+                c.translate(this.x, this.y);
+                c.rotate(this.rotation);
+                c.fillStyle = Config.colors.star;
+                
+                // Draw Star Shape
+                c.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    c.lineTo(Math.cos((18 + i * 72) * 0.0174533) * this.size,
+                             -Math.sin((18 + i * 72) * 0.0174533) * this.size);
+                    c.lineTo(Math.cos((54 + i * 72) * 0.0174533) * (this.size / 2),
+                             -Math.sin((54 + i * 72) * 0.0174533) * (this.size / 2));
+                }
+                c.closePath();
+                c.fill();
+                c.restore();
+            }
+        }
+
+        class Obstacle {
+            constructor() {
+                this.w = 30;
+                this.h = Math.random() * 50 + 40;
+                this.x = width;
+                this.y = height - 50 - this.h; // Grounded
+                this.speed = Config.speed;
+                this.markedForDeletion = false;
+                this.color = '#B39DDB';
+            }
+
+            update() {
+                this.x -= this.speed;
+                if (this.x < -this.w) this.markedForDeletion = true;
+            }
+
+            draw() {
+                c.fillStyle = this.color;
+                c.beginPath();
+                c.roundRect(this.x, this.y, this.w, this.h, 5);
+                c.fill();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.size = Math.random() * 5 + 2;
+                this.speedX = Math.random() * 4 - 2;
+                this.speedY = Math.random() * 4 - 2;
+                this.life = 1; // opacity
+            }
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.life -= 0.02;
+            }
+            draw() {
+                c.globalAlpha = this.life;
+                c.fillStyle = this.color;
+                c.beginPath();
+                c.arc(this.x, this.y, this.size, 0, Math.PI*2);
+                c.fill();
+                c.globalAlpha = 1;
+            }
+        }
+
+        /* --- GLOBAL VARIABLES --- */
+        let player;
+        let stars = [];
+        let obstacles = [];
+        let particles = [];
+        let frameCount = 0;
+        let animationId;
+
+        /* --- LOGIC HELPERS --- */
+        function createParticles(x, y, color) {
+            if(!state.settings.highGraphics) return;
+            for(let i=0; i<8; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        function checkCollisions() {
+            // Star Collision (Circle approx)
+            stars.forEach(star => {
+                const dx = (player.x + player.size/2) - star.x;
+                const dy = (player.y + player.size/2) - star.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if (dist < player.size/2 + star.size) {
+                    star.markedForDeletion = true;
+                    state.score += 10;
+                    Sound.collect();
+                    createParticles(star.x, star.y, '#FFD700');
+                    document.getElementById('score-display').innerText = state.score;
+                }
+            });
+
+            // Obstacle Collision (AABB)
+            obstacles.forEach(obs => {
+                if (
+                    player.x < obs.x + obs.w &&
+                    player.x + player.size > obs.x &&
+                    player.y < obs.y + obs.h &&
+                    player.y + player.size > obs.y
+                ) {
+                    gameOver();
+                }
+            });
+        }
+
+        function drawBackground() {
+            // Sky
+            c.fillStyle = '#E0F7FA'; // Is handled by CSS linear gradient actually, but clearRect needed
+            c.clearRect(0,0,width,height);
+
+            // Ground
+            c.fillStyle = Config.colors.ground;
+            c.fillRect(0, height - 50, width, 50);
+            
+            // Ground Detail
+            c.fillStyle = '#A3D4C2';
+            c.fillRect(0, height - 50, width, 5);
+
+            // Clouds (Parallax-ish)
+            if (state.settings.highGraphics) {
+                const time = Date.now() * 0.0005;
+                c.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                for(let i=0; i<5; i++) {
+                    let x = ((i * 300) + (time * 50)) % (width + 200) - 100;
+                    let y = 50 + (i * 30);
+                    c.beginPath();
+                    c.arc(x, y, 40, 0, Math.PI * 2);
+                    c.arc(x+30, y-10, 50, 0, Math.PI * 2);
+                    c.arc(x+60, y, 40, 0, Math.PI * 2);
+                    c.fill();
+                }
+            }
+        }
+
+        /* --- GAME LOOPS --- */
+        function initGame() {
+            player = new Player();
+            stars = [];
+            obstacles = [];
+            particles = [];
+            state.score = 0;
+            frameCount = 0;
+            document.getElementById('score-display').innerText = "0";
+        }
+
+        function loop() {
+            if (state.current !== GameState.PLAYING) return;
+
+            // Update
+            player.update();
+            
+            // Spawning
+            frameCount++;
+            if (frameCount % Config.spawnRate === 0) {
+                // Randomly spawn star or obstacle
+                if(Math.random() > 0.4) {
+                    stars.push(new Star());
+                } 
+                if (Math.random() > 0.6) {
+                    obstacles.push(new Obstacle());
+                }
+            }
+
+            stars.forEach(s => s.update());
+            obstacles.forEach(o => o.update());
+            particles.forEach(p => p.update());
+
+            // Cleanup
+            stars = stars.filter(s => !s.markedForDeletion);
+            obstacles = obstacles.filter(o => !o.markedForDeletion);
+            particles = particles.filter(p => p.life > 0);
+
+            checkCollisions();
+
+            // Draw
+            drawBackground();
+            
+            stars.forEach(s => s.draw());
+            obstacles.forEach(o => o.draw());
+            player.draw(); // Player on top
+            particles.forEach(p => p.draw());
+
+            animationId = requestAnimationFrame(loop);
+        }
+
+        /* --- UI FUNCTIONS --- */
+        const screens = {
+            menu: document.getElementById('menu-screen'),
+            pause: document.getElementById('pause-screen'),
+            settings: document.getElementById('settings-screen'),
+            gameover: document.getElementById('gameover-screen'),
+            hud: document.getElementById('hud')
+        };
+
+        function showScreen(screenName) {
+            // Hide all
+            Object.values(screens).forEach(s => s.classList.add('hidden'));
+            // Show requested
+            if(screens[screenName]) screens[screenName].classList.remove('hidden');
+        }
+
+        function startGame() {
+            state.current = GameState.PLAYING;
+            initGame();
+            showScreen('hud');
+            // Resume loop
+            loop();
+        }
+
+        function pauseGame() {
+            state.current = GameState.PAUSED;
+            cancelAnimationFrame(animationId);
+            showScreen('pause');
+            // Draw one frame to keep background but blur happens via CSS
+        }
+
+        function resumeGame() {
+            state.current = GameState.PLAYING;
+            showScreen('hud');
+            loop();
+        }
+
+        function gameOver() {
+            state.current = GameState.GAMEOVER;
+            Sound.crash();
+            document.getElementById('final-score').innerText = state.score;
+            showScreen('gameover');
+        }
+
+        function openSettings(fromState) {
+            state.previousState = fromState;
+            state.current = GameState.SETTINGS;
+            showScreen('settings');
+        }
+
+        function closeSettings() {
+            state.current = state.previousState;
+            
+            if (state.current === GameState.MENU) showScreen('menu');
+            else if (state.current === GameState.PAUSED) showScreen('pause');
+            
+            Sound.ui();
+        }
+
+        /* --- EVENT LISTENERS (UI) --- */
+        
+        // Menu
+        document.getElementById('btn-start').onclick = () => { Sound.ui(); startGame(); };
+        document.getElementById('btn-settings-open').onclick = () => { Sound.ui(); openSettings(GameState.MENU); };
+
+        // HUD
+        document.getElementById('btn-pause').onclick = () => { Sound.ui(); pauseGame(); };
+
+        // Pause
+        document.getElementById('btn-resume').onclick = () => { Sound.ui(); resumeGame(); };
+        document.getElementById('btn-restart-pause').onclick = () => { Sound.ui(); startGame(); };
+        document.getElementById('btn-menu-pause').onclick = () => { 
+            Sound.ui(); 
+            state.current = GameState.MENU; 
+            showScreen('menu'); 
+        };
+        document.getElementById('btn-settings-pause').onclick = () => { Sound.ui(); openSettings(GameState.PAUSED); };
+
+        // Game Over
+        document.getElementById('btn-restart').onclick = () => { Sound.ui(); startGame(); };
+        document.getElementById('btn-menu-over').onclick = () => { 
+            Sound.ui(); 
+            state.current = GameState.MENU; 
+            showScreen('menu'); 
+        };
+
+        // Settings
+        document.getElementById('btn-settings-close').onclick = closeSettings;
+        
+        // Settings Inputs
+        document.getElementById('vol-slider').oninput = (e) => {
+            state.settings.volume = e.target.value / 100;
+        };
+        
+        document.getElementById('graphics-toggle').onchange = (e) => {
+            state.settings.highGraphics = e.target.checked;
+        };
+        
+        document.getElementById('lang-select').onchange = (e) => {
+            state.settings.language = e.target.value;
+            updateLanguage();
+        };
+
+        // Init Language
+        updateLanguage();
+
+    </script>
+</body>
+</html>
