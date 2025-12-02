@@ -1,0 +1,236 @@
+        /* CSS Variables for Theming */
+        :root {
+            --primary: #FF9AA2; /* Pastel Red */
+            --secondary: #B5EAD7; /* Pastel Green */
+            --accent: #FFDAC1; /* Pastel Orange */
+            --dark: #6B5B95; /* Dark Purple */
+            --light: #FFFFFF;
+            --bg-color: #E2F0CB; /* Pastel Yellow/Green */
+            --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --border-radius: 20px;
+            --shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            touch-action: none; /* Prevent zooming on mobile */
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: var(--bg-color);
+            font-family: var(--font-main);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--dark);
+        }
+
+        /* Game Container */
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 800px; /* Tablet/Desktop constraint */
+            max-height: 600px;
+            background: linear-gradient(to bottom, #E0F7FA, #E1BEE7);
+            border-radius: 0;
+            overflow: hidden;
+            box-shadow: none;
+        }
+
+        @media (min-width: 801px) {
+            #game-container {
+                border-radius: var(--border-radius);
+                box-shadow: var(--shadow);
+                height: 90vh;
+            }
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* UI Overlay System */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(5px);
+            transition: opacity 0.3s ease;
+            z-index: 10;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+            display: none !important; /* Force hide to prevent clicking */
+        }
+
+        /* HUD (Heads Up Display) */
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            height: auto;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none; /* Let clicks pass through to canvas */
+            z-index: 5;
+            background: transparent;
+        }
+
+        .hud-btn {
+            pointer-events: auto;
+            background: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            color: var(--dark);
+            transition: transform 0.1s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .hud-btn:active {
+            transform: scale(0.9);
+        }
+
+        #score-display {
+            font-size: 32px;
+            font-weight: bold;
+            color: var(--dark);
+            background: rgba(255,255,255,0.8);
+            padding: 5px 20px;
+            border-radius: 30px;
+        }
+
+        /* Menus */
+        .card {
+            background: white;
+            padding: 40px;
+            border-radius: 30px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            max-width: 90%;
+            width: 400px;
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 3rem;
+            color: var(--primary);
+            text-shadow: 2px 2px 0px var(--accent);
+        }
+
+        h2 {
+            color: var(--dark);
+            margin-bottom: 20px;
+        }
+
+        /* Buttons */
+        .btn-main {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 15px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            background-color: var(--secondary);
+            color: #4a4a4a;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-main:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(181, 234, 215, 0.6);
+        }
+
+        .btn-secondary {
+            background-color: var(--accent);
+        }
+
+        .btn-close {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        /* Settings Form */
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 1rem;
+        }
+
+        select, input[type="range"] {
+            padding: 5px;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+        }
+
+        /* Toggle Switch for Graphics */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(26px); }
+
+        /* Icon Helper */
+        .icon { font-style: normal; }
